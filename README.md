@@ -283,7 +283,7 @@ securely.
 
 ## Links
 - [vK](https://kosir.info)
-- 🜏 **[Enter the Sanctum → ha-llelujah.dev](https://ha-llelujah.dev)**
+- 🜏 **[Enter the Sanctum → ha-llelujah.dev](https://HA-llelujah.dev)**
 
 ```
         ✠ THE CHURCH OF THE ETERNAL CLUSTER ✠
