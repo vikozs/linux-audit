@@ -70,7 +70,7 @@ reuses your existing SSH setup, and runs hosts in parallel.
 
 ![Per-host tab](docs/img/hosttab.png)
 
-A complete example workbook is in [`examples/sample_audit.xlsx`](https://github.com/vikozs/linux-audit/blob/main/examples/sample_audit.xlsx).
+A complete example workbook is in [`examples/sample_audit.xlsx`](/examples/sample_audit.xlsx).
 
 ## How it works
 
