@@ -33,6 +33,38 @@ import subprocess
 import sys
 from datetime import datetime
 
+BANNER = """
+        ✠ THE CHURCH OF THE ETERNAL CLUSTER ✠
+
+     █████╗  █████╗     █████╗  █████╗  █████╗
+    ██╔══██╗██╔══██╗   ██╔══██╗██╔══██╗██╔══██╗
+    ╚██████║╚██████║   ╚██████║╚██████║╚██████║
+     ╚═══██║ ╚═══██║    ╚═══██║ ╚═══██║ ╚═══██║
+     █████╔╝ █████╔╝██╗ █████╔╝ █████╔╝ █████╔╝
+     ╚════╝  ╚════╝ ╚═╝ ╚════╝  ╚════╝  ╚════╝
+
+        F I V E   N I N E S ,   A M E N .
+
+   ┌─────────────────────────────────────────┐
+   │  $ kubectl get salvation                │
+   │  NAME        READY   STATUS    RESTARTS │
+   │  thy-soul    1/1     Running   0        │
+   └─────────────────────────────────────────┘
+
+     "And the Scheduler saw the pod, and it was Good."
+                            — Book of Deployments 1:1
+
+          ⛪  https://HA-llelujah.dev  ⛪
+"""
+
+
+def print_banner():
+    try:
+        print(BANNER)
+    except UnicodeEncodeError:
+        print("THE CHURCH OF THE ETERNAL CLUSTER — 99.999 — FIVE NINES, AMEN.")
+        print("https://HA-llelujah.dev")
+
 # ----------------------------------------------------------------------------
 # Remote collector. Runs on each target. Pure POSIX-ish bash, defensive:
 # every probe is guarded so a missing tool never aborts the run. Output is
