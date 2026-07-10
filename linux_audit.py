@@ -60,10 +60,10 @@ BANNER = """
 
 def print_banner():
     try:
-        print(BANNER)
+        print(BANNER, file=sys.stderr)
     except UnicodeEncodeError:
-        print("THE CHURCH OF THE ETERNAL CLUSTER — 99.999 — FIVE NINES, AMEN.")
-        print("https://HA-llelujah.dev")
+        print("THE CHURCH OF THE ETERNAL CLUSTER — 99.999 — FIVE NINES, AMEN.", file=sys.stderr)
+        print("https://HA-llelujah.dev", file=sys.stderr)
 
 # ----------------------------------------------------------------------------
 # Remote collector. Runs on each target. Pure POSIX-ish bash, defensive:
@@ -1322,6 +1322,7 @@ def make_workbook(records, errors, args):
 # Main
 # ----------------------------------------------------------------------------
 def main():
+    print_banner()
     ap = argparse.ArgumentParser(
         description="SSH Linux fleet inventory & hardening baseline -> Excel.")
     ap.add_argument("-H", "--hosts", required=True, help="text file, one host per line")
