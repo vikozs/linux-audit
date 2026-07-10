@@ -1,0 +1,15 @@
+# Example host list for linux_audit.py
+# One host per line. Blank lines and # comments are ignored.
+#
+# Accepted formats:
+#   host
+#   user@host
+#   host:port
+#   user@host:port        # inline comments allowed
+#
+# The default SSH user (-u) applies to lines without a user@ prefix.
+
+web01.example.com
+admin@db01.example.com
+10.0.0.5:2222
+bastion.example.com        # jump box
