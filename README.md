@@ -283,7 +283,8 @@ securely.
 
 ## Links
 - [vK](https://kosir.info)
-- 🜏 **[Enter the Sanctum → HA-llelujah.dev](https://HA-llelujah.dev)**
+- [Sacred Music for the Reconciled](https://ha-llelujah.dev/album)
+- [Attend the parish →](https://fivenines.church/)
 
 ```
         ✠ THE CHURCH OF THE ETERNAL CLUSTER ✠
