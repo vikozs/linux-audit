@@ -27,43 +27,12 @@ import base64
 import os
 import concurrent.futures as cf
 import getpass
+import json
 import re
 import shlex
 import subprocess
 import sys
 from datetime import datetime
-
-BANNER = """
-        ✠ THE CHURCH OF THE ETERNAL CLUSTER ✠
-
-     █████╗  █████╗     █████╗  █████╗  █████╗
-    ██╔══██╗██╔══██╗   ██╔══██╗██╔══██╗██╔══██╗
-    ╚██████║╚██████║   ╚██████║╚██████║╚██████║
-     ╚═══██║ ╚═══██║    ╚═══██║ ╚═══██║ ╚═══██║
-     █████╔╝ █████╔╝██╗ █████╔╝ █████╔╝ █████╔╝
-     ╚════╝  ╚════╝ ╚═╝ ╚════╝  ╚════╝  ╚════╝
-
-        F I V E   N I N E S ,   A M E N .
-
-   ┌─────────────────────────────────────────┐
-   │  $ kubectl get salvation                │
-   │  NAME        READY   STATUS    RESTARTS │
-   │  thy-soul    1/1     Running   0        │
-   └─────────────────────────────────────────┘
-
-     "And the Scheduler saw the pod, and it was Good."
-                            — Book of Deployments 1:1
-
-          ⛪  https://HA-llelujah.dev  ⛪
-"""
-
-
-def print_banner():
-    try:
-        print(BANNER, file=sys.stderr)
-    except UnicodeEncodeError:
-        print("THE CHURCH OF THE ETERNAL CLUSTER — 99.999 — FIVE NINES, AMEN.", file=sys.stderr)
-        print("https://HA-llelujah.dev", file=sys.stderr)
 
 # ----------------------------------------------------------------------------
 # Remote collector. Runs on each target. Pure POSIX-ish bash, defensive:
@@ -235,8 +204,239 @@ printf '@@END\n'
 
 RED, ORANGE, YELLOW, GREEN, GREY = "C00000", "ED7D31", "FFC000", "70AD47", "D9D9D9"
 
-BUILD = "2026-07-09.formula-safe"
-__version__ = "1.0.0"
+BUILD = "2026-07-17.plan-export"
+__version__ = "1.1.0"
+
+# Schema identifier for the machine-readable remediation plan (--plan-out).
+# Downstream tools should assert on PLAN_SCHEMA and refuse unknown major versions.
+PLAN_SCHEMA = "linux-audit.remediation-plan"
+PLAN_SCHEMA_VERSION = "1.0"
+
+# ---------------------------------------------------------------------------
+# Remediation table: CIS check id -> how a machine would actually fix it.
+#
+# This is the contract with the downstream hardening/patching tool. Each entry:
+#   key         stable dotted identifier, independent of the CIS numbering
+#   expected    the desired value
+#   observed    callable(rec) -> the value found on the host
+#   action      structured fix; 'type' selects the executor module
+#   restart     services to restart/reload after applying
+#   disruptive  True if applying this can drop connectivity or break a workload.
+#               An unattended run MUST default to skipping these.
+#   reboot      True if the change only takes effect after a reboot
+#   caution     human-readable warning; keep it in the plan so the operator sees
+#               it even if they never read this source file
+#
+# Action types a consumer must implement:
+#   sshd_config | sysctl | file_mode | login_defs | package_remove |
+#   package_update | service_enable | reboot | manual
+# ---------------------------------------------------------------------------
+REMEDIATION = {
+    # ── SSH ────────────────────────────────────────────────────────────────
+    "5.2.1": dict(
+        key="ssh.permit_root_login", expected="no",
+        observed=lambda r: r["ssh"].get("permitrootlogin"),
+        action={"type": "sshd_config", "directive": "PermitRootLogin", "value": "no"},
+        restart=["sshd"], disruptive=True, reboot=False,
+        caution="Verify a sudo-capable non-root account can log in first. "
+                "Automation that logs in as root will break."),
+    "5.2.2": dict(
+        key="ssh.password_authentication", expected="no",
+        observed=lambda r: r["ssh"].get("passwordauthentication"),
+        action={"type": "sshd_config", "directive": "PasswordAuthentication", "value": "no"},
+        restart=["sshd"], disruptive=True, reboot=False,
+        caution="Requires working key-based auth for every account that needs access. "
+                "Applying this blind will lock you out."),
+    "5.2.3": dict(
+        key="ssh.permit_empty_passwords", expected="no",
+        observed=lambda r: r["ssh"].get("permitemptypasswords"),
+        action={"type": "sshd_config", "directive": "PermitEmptyPasswords", "value": "no"},
+        restart=["sshd"], disruptive=False, reboot=False,
+        caution=None),
+    "5.2.4": dict(
+        key="ssh.max_auth_tries", expected="4",
+        observed=lambda r: r["ssh"].get("maxauthtries"),
+        action={"type": "sshd_config", "directive": "MaxAuthTries", "value": "4"},
+        restart=["sshd"], disruptive=False, reboot=False, caution=None),
+    "5.2.5": dict(
+        key="ssh.x11_forwarding", expected="no",
+        observed=lambda r: r["ssh"].get("x11forwarding"),
+        action={"type": "sshd_config", "directive": "X11Forwarding", "value": "no"},
+        restart=["sshd"], disruptive=False, reboot=False,
+        caution="Breaks remote GUI tooling if anyone relies on it."),
+    "5.2.6": dict(
+        key="ssh.client_alive_interval", expected="300",
+        observed=lambda r: r["ssh"].get("clientaliveinterval"),
+        action={"type": "sshd_config", "directive": "ClientAliveInterval", "value": "300"},
+        restart=["sshd"], disruptive=False, reboot=False,
+        caution="Long-running interactive sessions will be disconnected when idle."),
+    "5.2.7": dict(
+        key="ssh.login_grace_time", expected="60",
+        observed=lambda r: r["ssh"].get("logingracetime"),
+        action={"type": "sshd_config", "directive": "LoginGraceTime", "value": "60"},
+        restart=["sshd"], disruptive=False, reboot=False, caution=None),
+    "5.2.8": dict(
+        key="file.sshd_config.mode", expected="600",
+        observed=lambda r: (r["file_perms"].get("/etc/ssh/sshd_config") or {}).get("mode"),
+        action={"type": "file_mode", "path": "/etc/ssh/sshd_config",
+                "mode": "0600", "owner": "root", "group": "root"},
+        restart=[], disruptive=False, reboot=False, caution=None),
+
+    # ── File permissions ───────────────────────────────────────────────────
+    "6.1.2": dict(
+        key="file.passwd.mode", expected="644",
+        observed=lambda r: (r["file_perms"].get("/etc/passwd") or {}).get("mode"),
+        action={"type": "file_mode", "path": "/etc/passwd", "mode": "0644",
+                "owner": "root", "group": "root"},
+        restart=[], disruptive=False, reboot=False, caution=None),
+    "6.1.3": dict(
+        key="file.shadow.mode", expected="0640_or_stricter",
+        observed=lambda r: (r["file_perms"].get("/etc/shadow") or {}).get("mode"),
+        action={"type": "file_mode", "path": "/etc/shadow", "mode": "0640",
+                "owner": "root", "group": None},
+        restart=[], disruptive=False, reboot=False,
+        caution="Group differs by distro: 'shadow' on Debian/Ubuntu, 'root' on RHEL. "
+                "Preserve the existing group rather than forcing one."),
+    "6.1.4": dict(
+        key="file.group.mode", expected="644",
+        observed=lambda r: (r["file_perms"].get("/etc/group") or {}).get("mode"),
+        action={"type": "file_mode", "path": "/etc/group", "mode": "0644",
+                "owner": "root", "group": "root"},
+        restart=[], disruptive=False, reboot=False, caution=None),
+    "6.1.5": dict(
+        key="file.gshadow.mode", expected="0640_or_stricter",
+        observed=lambda r: (r["file_perms"].get("/etc/gshadow") or {}).get("mode"),
+        action={"type": "file_mode", "path": "/etc/gshadow", "mode": "0640",
+                "owner": "root", "group": None},
+        restart=[], disruptive=False, reboot=False,
+        caution="See /etc/shadow: group ownership differs by distro."),
+
+    # ── Accounts ───────────────────────────────────────────────────────────
+    "6.2.1": dict(
+        key="accounts.uid0_unique", expected="root",
+        observed=lambda r: ",".join(sorted(r["uid0"])),
+        action={"type": "manual",
+                "note": "Investigate every non-root UID 0 account. Never automate this: "
+                        "a second UID 0 is either a backdoor or a deliberate break-glass "
+                        "account, and both need a human decision."},
+        restart=[], disruptive=True, reboot=False,
+        caution="Do not auto-remediate. Escalate to a human."),
+    "6.2.2": dict(
+        key="accounts.no_empty_passwords", expected="none",
+        observed=lambda r: ",".join(u["user"] for u in r["users"]
+                                    if u["password"] == "EMPTY" and u["login_capable"] == "yes"),
+        action={"type": "manual",
+                "note": "Lock (passwd -l) or set a password on each listed account. "
+                        "Locking a service account may break the service."},
+        restart=[], disruptive=True, reboot=False,
+        caution="Locking an account in use will break whatever uses it."),
+
+    # ── Password policy ────────────────────────────────────────────────────
+    "5.4.1": dict(
+        key="login_defs.pass_max_days", expected="365",
+        observed=lambda r: r["logindefs"].get("PASS_MAX_DAYS"),
+        action={"type": "login_defs", "key": "PASS_MAX_DAYS", "value": "365"},
+        restart=[], disruptive=False, reboot=False,
+        caution="Applies to new accounts only; existing users need chage."),
+    "5.4.2": dict(
+        key="login_defs.pass_min_days", expected="1",
+        observed=lambda r: r["logindefs"].get("PASS_MIN_DAYS"),
+        action={"type": "login_defs", "key": "PASS_MIN_DAYS", "value": "1"},
+        restart=[], disruptive=False, reboot=False, caution=None),
+    "5.4.3": dict(
+        key="login_defs.pass_warn_age", expected="7",
+        observed=lambda r: r["logindefs"].get("PASS_WARN_AGE"),
+        action={"type": "login_defs", "key": "PASS_WARN_AGE", "value": "7"},
+        restart=[], disruptive=False, reboot=False, caution=None),
+
+    # ── Kernel / sysctl ────────────────────────────────────────────────────
+    "1.5.1": dict(
+        key="sysctl.kernel.randomize_va_space", expected="2",
+        observed=lambda r: r["sysctl"].get("kernel.randomize_va_space"),
+        action={"type": "sysctl", "key": "kernel.randomize_va_space", "value": "2"},
+        restart=[], disruptive=False, reboot=False, caution=None),
+    "3.2.1": dict(
+        key="sysctl.net.ipv4.ip_forward", expected="0",
+        observed=lambda r: r["sysctl"].get("net.ipv4.ip_forward"),
+        action={"type": "sysctl", "key": "net.ipv4.ip_forward", "value": "0"},
+        restart=[], disruptive=True, reboot=False,
+        caution="Docker, Kubernetes, VPNs, NAT and routers REQUIRE ip_forward=1. "
+                "This check is WARN, not FAIL, for that reason. Never auto-apply."),
+    "3.2.2": dict(
+        key="sysctl.net.ipv4.conf.all.accept_redirects", expected="0",
+        observed=lambda r: r["sysctl"].get("net.ipv4.conf.all.accept_redirects"),
+        action={"type": "sysctl", "key": "net.ipv4.conf.all.accept_redirects", "value": "0"},
+        restart=[], disruptive=False, reboot=False, caution=None),
+    "3.2.3": dict(
+        key="sysctl.net.ipv4.tcp_syncookies", expected="1",
+        observed=lambda r: r["sysctl"].get("net.ipv4.tcp_syncookies"),
+        action={"type": "sysctl", "key": "net.ipv4.tcp_syncookies", "value": "1"},
+        restart=[], disruptive=False, reboot=False, caution=None),
+    "3.2.4": dict(
+        key="sysctl.net.ipv4.conf.all.rp_filter", expected="1",
+        observed=lambda r: r["sysctl"].get("net.ipv4.conf.all.rp_filter"),
+        action={"type": "sysctl", "key": "net.ipv4.conf.all.rp_filter", "value": "1"},
+        restart=[], disruptive=True, reboot=False,
+        caution="Breaks asymmetric routing and some multi-homed/VPN setups."),
+
+    # ── Platform posture ───────────────────────────────────────────────────
+    "1.6.1": dict(
+        key="mac.enabled", expected="enforcing",
+        observed=lambda r: "selinux=%s apparmor=%s" % (r["mac"].get("selinux", "n/a"),
+                                                       r["mac"].get("apparmor", "n/a")),
+        action={"type": "manual",
+                "note": "Enable SELinux (enforcing) or AppArmor. Enabling SELinux on a "
+                        "system that has run without it requires a full filesystem "
+                        "relabel and a reboot, and commonly breaks unconfined apps."},
+        restart=[], disruptive=True, reboot=True,
+        caution="Do not auto-apply. Stage via permissive mode first and review denials."),
+    "3.5.1": dict(
+        key="firewall.active", expected="active",
+        observed=lambda r: r["fw_detail"] or "none",
+        action={"type": "service_enable", "unit": "firewalld|ufw",
+                "note": "Must allow the SSH port BEFORE enabling, or the host is lost."},
+        restart=[], disruptive=True, reboot=False,
+        caution="Enabling a default-deny firewall over SSH will cut your own session "
+                "unless the SSH port is allowed first. Highest-risk item in this table."),
+    "2.2.1": dict(
+        key="time.sync", expected="enabled",
+        observed=lambda r: "NTP=%s synced=%s" % (r["timesync"].get("NTP", "?"),
+                                                 r["timesync"].get("NTPSynchronized", "?")),
+        action={"type": "service_enable", "unit": "chronyd|systemd-timesyncd"},
+        restart=[], disruptive=False, reboot=False,
+        caution="A large time step can upset databases and Kerberos."),
+
+    # ── Patching ───────────────────────────────────────────────────────────
+    "1.9": dict(
+        key="updates.security_pending", expected="0",
+        observed=lambda r: r["updates"].get("security"),
+        action={"type": "package_update", "security_only": True},
+        restart=["*"], disruptive=True, reboot=False,
+        caution="Restarts services. Schedule in a maintenance window. "
+                "Counts come from the existing package cache; refresh metadata first."),
+    "1.8": dict(
+        key="updates.automatic", expected="configured",
+        observed=lambda r: r["autoupdate"],
+        action={"type": "package_install",
+                "packages": {"apt": ["unattended-upgrades"], "dnf": ["dnf-automatic"]}},
+        restart=[], disruptive=False, reboot=False,
+        caution="Unattended patching on production hosts is a policy decision."),
+    "1.10": dict(
+        key="system.reboot_required", expected="no",
+        observed=lambda r: r["reboot_required"],
+        action={"type": "reboot"},
+        restart=[], disruptive=True, reboot=True,
+        caution="Obviously disruptive. Maintenance window only."),
+
+    # ── Legacy services ────────────────────────────────────────────────────
+    "2.3": dict(
+        key="packages.legacy_insecure", expected="none",
+        observed=lambda r: ",".join(r["insecure_pkgs"]),
+        action={"type": "package_remove", "packages": "@observed"},
+        restart=[], disruptive=False, reboot=False,
+        caution="Confirm nothing still uses these before removing (rare but real: "
+                "old backup jobs over rsh, network kit flashed over tftp)."),
+}
 
 
 def _guard_formula(cell):
@@ -546,28 +746,49 @@ def parse_sysctl(lines):
 
 
 def parse_firewall(lines):
+    """Detect an active host firewall.
+
+    Careful: naive substring tests are wrong here. 'inactive' contains 'active'
+    and 'not running' contains 'running', so `if "active" in low` reports a
+    firewall-less host as protected — a false PASS on a security check. Match the
+    status value exactly instead.
+    """
     active = False
     detail = []
     for l in lines:
-        detail.append(l.strip())
-        low = l.lower()
-        if "ufw:" in low and "active" in low:
-            active = True
-        if "firewalld:" in low and "running" in low:
-            active = True
-        if low.startswith("nftables_lines:"):
+        s = l.strip()
+        if not s:
+            continue
+        detail.append(s)
+        low = s.lower()
+        if ":" not in low:
+            continue
+        tag, val = low.split(":", 1)
+        tag, val = tag.strip(), val.strip()
+
+        if tag == "ufw":
+            # e.g. "ufw:Status: active" / "ufw:Status: inactive"
+            if "status:" in val:
+                val = val.split("status:", 1)[1].strip()
+            if val == "active":
+                active = True
+        elif tag == "firewalld":
+            # e.g. "firewalld:running" / "firewalld:not running" / "firewalld:"
+            if val == "running":
+                active = True
+        elif tag == "nftables_lines":
             try:
-                if int(l.split(":", 1)[1]) > 2:
+                if int(val) > 2:
                     active = True
             except ValueError:
                 pass
-        if low.startswith("iptables_rules:"):
+        elif tag == "iptables_rules":
             try:
-                if int(l.split(":", 1)[1]) > 3:
+                if int(val) > 3:
                     active = True
             except ValueError:
                 pass
-    return active, "; ".join(x for x in detail if x)
+    return active, "; ".join(detail)
 
 
 # ----------------------------------------------------------------------------
@@ -1322,7 +1543,6 @@ def make_workbook(records, errors, args):
 # Main
 # ----------------------------------------------------------------------------
 def main():
-    print_banner()
     ap = argparse.ArgumentParser(
         description="SSH Linux fleet inventory & hardening baseline -> Excel.")
     ap.add_argument("-H", "--hosts", required=True, help="text file, one host per line")
@@ -1330,6 +1550,9 @@ def main():
     ap.add_argument("--active-out", default="active_hosts.txt", metavar="PATH",
                     help="write reachable hosts to this file (default: active_hosts.txt; "
                          "pass '' to disable)")
+    ap.add_argument("--plan-out", default=None, metavar="PATH",
+                    help="also write a machine-readable remediation plan (JSON) for a "
+                         "downstream hardening/patching tool, e.g. --plan-out plan.json")
     ap.add_argument("-u", "--user", default=None, help="default SSH user (overridable per-line)")
     ap.add_argument("-p", "--port", default=None, help="default SSH port")
     ap.add_argument("-i", "--identity", default=None, help="SSH private key file")
@@ -1426,6 +1649,146 @@ def main():
         write_active_file(records, errors, args.active_out)
         print(f"Wrote {args.active_out}  ({len(records)} active host(s))",
               file=sys.stderr)
+
+    if args.plan_out:
+        plan = write_plan(records, errors, args, args.plan_out)
+        sm = plan["summary"]
+        print(f"Wrote {args.plan_out}  ({sm['remediation_items']} remediation item(s): "
+              f"{sm['auto_applicable']} auto-applicable, {sm['needs_human']} need a human)",
+              file=sys.stderr)
+
+
+def os_family(rec):
+    """Coarse family for the downstream executor: debian | rhel | suse | unknown."""
+    d = (rec.get("distro") or "").lower()
+    mgr = (rec.get("updates") or {}).get("mgr") or ""
+    if mgr == "apt" or any(k in d for k in ("debian", "ubuntu", "mint", "raspbian")):
+        return "debian"
+    if mgr in ("dnf", "yum") or any(k in d for k in
+                                    ("red hat", "rhel", "centos", "rocky", "alma", "fedora", "oracle")):
+        return "rhel"
+    if "suse" in d or mgr == "zypper":
+        return "suse"
+    return "unknown"
+
+
+def build_plan(records, errors, args):
+    """Build the machine-readable remediation plan (--plan-out).
+
+    Deliberately decoupled from the Excel writer: the workbook is prose for
+    humans, this is structured data for a machine. Both derive from the same
+    parsed records, and CIS pass/fail remains the single source of truth for
+    whether an item is included.
+    """
+    hosts = []
+    for r in records:
+        items = []
+        for cid, title, result, detail in r["cis"]:
+            if result not in ("FAIL", "WARN"):
+                continue
+            spec = REMEDIATION.get(cid)
+            if not spec:
+                continue
+            try:
+                obs = spec["observed"](r)
+            except Exception:  # noqa: BLE001 - never let the exporter die on odd data
+                obs = None
+
+            action = dict(spec["action"])
+            # '@observed' is a late-bound placeholder: the package list to remove
+            # is whatever this host actually has.
+            if action.get("packages") == "@observed":
+                action["packages"] = [p for p in (obs or "").split(",") if p]
+
+            items.append({
+                "check_id": cid,
+                "key": spec["key"],
+                "title": title,
+                "result": result,
+                "observed": obs,
+                "expected": spec["expected"],
+                "detail": detail,
+                "action": action,
+                "restart": spec.get("restart", []),
+                "disruptive": bool(spec.get("disruptive")),
+                "requires_reboot": bool(spec.get("reboot")),
+                "caution": spec.get("caution"),
+            })
+
+        auto = [i for i in items if not i["disruptive"]]
+        hosts.append({
+            "host": r["host"],
+            "hostname": r["hostname"],
+            "reachable": True,
+            "facts": {
+                "distro": r["distro"],
+                "os_family": os_family(r),
+                "kernel": r["kernel"],
+                "arch": r["arch"],
+                "package_manager": r["updates"].get("mgr") or None,
+                "ips": r["ips"],
+                "uptime": r["uptime"],
+                "reboot_required": r["reboot_required"] == "yes",
+                "selinux": r["mac"].get("selinux"),
+                "apparmor": r["mac"].get("apparmor"),
+                "firewall_active": bool(r["fw_active"]),
+                "package_count": r["pkgcount"] or None,
+                "updates_pending": r["updates"].get("pending"),
+                "updates_security": r["updates"].get("security"),
+            },
+            "counts": {
+                "cis_pass": sum(1 for c in r["cis"] if c[2] == "PASS"),
+                "cis_fail": sum(1 for c in r["cis"] if c[2] == "FAIL"),
+                "cis_warn": sum(1 for c in r["cis"] if c[2] == "WARN"),
+                "findings_high": sum(1 for f in r["findings"] if f[0] == "High"),
+                "findings_medium": sum(1 for f in r["findings"] if f[0] == "Medium"),
+                "findings_low": sum(1 for f in r["findings"] if f[0] == "Low"),
+                "remediation_items": len(items),
+                "auto_applicable": len(auto),
+                "needs_human": len(items) - len(auto),
+            },
+            "remediation": items,
+            "findings": [
+                {"severity": s.lower(), "category": cat, "finding": fi,
+                 "detail": de, "recommendation": rc}
+                for s, cat, fi, de, rc in r["findings"]
+            ],
+        })
+
+    return {
+        "schema": PLAN_SCHEMA,
+        "schema_version": PLAN_SCHEMA_VERSION,
+        "generated": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "generator": {"tool": "linux-audit", "version": __version__, "build": BUILD},
+        "notes": [
+            "CIS checks are heuristic, benchmark-style checks derived from collected "
+            "data. This is a hardening baseline, not a certified CIS-CAT scan.",
+            "Update counts reflect each host's existing package cache; no repository "
+            "refresh was performed during the audit.",
+            "Items with disruptive=true can drop connectivity or break workloads. An "
+            "unattended run must skip them unless a human has explicitly opted in.",
+            "observed/expected describe state at audit time. Re-verify before applying; "
+            "the host may have changed.",
+        ],
+        "summary": {
+            "hosts_total": len(records) + len(errors),
+            "hosts_ok": len(records),
+            "hosts_failed": len(errors),
+            "remediation_items": sum(h["counts"]["remediation_items"] for h in hosts),
+            "auto_applicable": sum(h["counts"]["auto_applicable"] for h in hosts),
+            "needs_human": sum(h["counts"]["needs_human"] for h in hosts),
+        },
+        "hosts": hosts,
+        "unreachable": [{"host": h, "error": e} for h, e in errors],
+    }
+
+
+def write_plan(records, errors, args, path):
+    plan = build_plan(records, errors, args)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(plan, fh, indent=2, ensure_ascii=False, sort_keys=False)
+        fh.write("\n")
+    return plan
 
 
 def write_active_file(records, errors, path):

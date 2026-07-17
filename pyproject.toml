@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "linux-audit"
-version = "1.0.0"
+version = "1.1.0"
 description = "Agentless SSH inventory & security-hardening baseline for Linux fleets, exported to Excel."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -22,3 +22,7 @@ linux-audit = "linux_audit:main"
 
 [tool.setuptools]
 py-modules = ["linux_audit", "check_xlsx", "fix_xlsx"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

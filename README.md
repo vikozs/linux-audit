@@ -52,6 +52,9 @@ reuses your existing SSH setup, and runs hosts in parallel.
 - **Per-host detail tabs** — a one-page posture summary per server.
 - **Active-hosts output** — writes a reusable list of the servers that actually
   responded.
+- **Machine-readable remediation plan** *(optional)* — `--plan-out plan.json`
+  emits structured, safety-annotated fixes for a downstream hardening/patching
+  tool. See [`docs/PLAN_SCHEMA.md`](docs/PLAN_SCHEMA.md).
 - **Safe output** — every cell that could be interpreted as a spreadsheet formula is
   written as text, which prevents Excel "repair" warnings **and** neutralises
   spreadsheet formula-injection from untrusted host data.
@@ -70,7 +73,7 @@ reuses your existing SSH setup, and runs hosts in parallel.
 
 ![Per-host tab](docs/img/hosttab.png)
 
-A complete example workbook is in [`examples/sample_audit.xlsx`](/examples/sample_audit.xlsx).
+A complete example workbook is in [`examples/sample_audit.xlsx`](examples/sample_audit.xlsx).
 
 ## How it works
 
@@ -120,7 +123,7 @@ linux-audit --help
 python3 linux_audit.py -H hosts.txt -o audit.xlsx
 
 # password SSH login + sudo with the same password (one prompt)
-python3 linux_audit.py -H hosts.txt -u username --ask-ssh-pass --sudo-pass-same-as-ssh -o audit.xlsx
+python3 linux_audit.py -H hosts.txt -u sa.vko --ask-ssh-pass --sudo-pass-same-as-ssh -o audit.xlsx
 ```
 
 Copy `hosts.example.txt` to `hosts.txt` and edit it first.
@@ -155,6 +158,7 @@ never on the command line or in the process list. One prompt is reused for all h
 | `-H, --hosts PATH` | Host list file (required) |
 | `-o, --output PATH` | Output `.xlsx` (default `linux_audit.xlsx`) |
 | `--active-out PATH` | Write reachable hosts here (default `active_hosts.txt`; `''` to disable) |
+| `--plan-out PATH` | Also write a machine-readable remediation plan (JSON). Off by default. |
 | `-u, --user USER` | Default SSH user (overridable per line) |
 | `-p, --port PORT` | Default SSH port |
 | `-i, --identity FILE` | SSH private key |
@@ -215,13 +219,45 @@ distro are trailing comments — so you can feed it straight back in:
 
 ```
 # Active hosts as of 2026-07-09 12:00:00 — 78 reachable, 3 unreachable
-sub.domain.loc              # 192.168.101.168  Red Hat Enterprise Linux 9.3 (Plow)
+s-cohen.zav-mb.loc              # 172.16.101.168  Red Hat Enterprise Linux 9.3 (Plow)
 ...
 ```
 
 ```bash
-python3 linux_audit.py -H active_hosts.txt -u username --ask-ssh-pass --sudo-pass-same-as-ssh
+python3 linux_audit.py -H active_hosts.txt -u sa.vko --ask-ssh-pass --sudo-pass-same-as-ssh
 ```
+
+## Remediation plan (optional)
+
+`--plan-out` writes a JSON handoff file for a separate hardening/patching tool.
+The workbook is prose for humans; this is structured data for a machine.
+
+```bash
+python3 linux_audit.py -H hosts.txt -o audit.xlsx --plan-out plan.json
+```
+
+Each item carries what to change, what was observed, and — most importantly —
+whether it is safe to apply unattended:
+
+```json
+{
+  "check_id": "3.5.1",
+  "key": "firewall.active",
+  "observed": "ufw:Status: inactive",
+  "expected": "active",
+  "action": { "type": "service_enable", "unit": "firewalld|ufw" },
+  "disruptive": true,
+  "caution": "Enabling a default-deny firewall over SSH will cut your own session unless the SSH port is allowed first."
+}
+```
+
+Only CIS `FAIL`/`WARN` produce items, so a clean host yields an empty list.
+Full contract, action types and a worked consumer example:
+[`docs/PLAN_SCHEMA.md`](docs/PLAN_SCHEMA.md). Sample output:
+[`examples/sample_plan.json`](examples/sample_plan.json).
+
+> The plan describes your infrastructure's weaknesses in machine-readable form.
+> Treat it as at least as sensitive as the report; `.gitignore` excludes it.
 
 ## Helper utilities
 
@@ -280,30 +316,3 @@ Released under the [MIT License](LICENSE).
 Provided "as is", without warranty. You are responsible for ensuring you have
 authorisation to audit the target systems and for handling the resulting reports
 securely.
-
-## Links
-- [vK](https://kosir.info)
-- [Sacred Music for the Reconciled](https://ha-llelujah.dev/album)
-- [Attend the parish →](https://fivenines.church/)
-
-```
-        ✠ THE CHURCH OF THE ETERNAL CLUSTER ✠
-
-     █████╗  █████╗     █████╗  █████╗  █████╗
-    ██╔══██╗██╔══██╗   ██╔══██╗██╔══██╗██╔══██╗
-    ╚██████║╚██████║   ╚██████║╚██████║╚██████║
-     ╚═══██║ ╚═══██║    ╚═══██║ ╚═══██║ ╚═══██║
-     █████╔╝ █████╔╝██╗ █████╔╝ █████╔╝ █████╔╝
-     ╚════╝  ╚════╝ ╚═╝ ╚════╝  ╚════╝  ╚════╝
-
-        F I V E   N I N E S ,   A M E N .
-
-   ┌─────────────────────────────────────────┐
-   │  $ kubectl get salvation                │
-   │  NAME        READY   STATUS    RESTARTS │
-   │  thy-soul    1/1     Running   0        │
-   └─────────────────────────────────────────┘
-
-     "And the Scheduler saw the pod, and it was Good."
-                            — Book of Deployments 1:1
-```

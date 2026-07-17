@@ -1,0 +1,485 @@
+{
+  "schema": "linux-audit.remediation-plan",
+  "schema_version": "1.0",
+  "generated": "2026-07-17T18:54:09+00:00",
+  "generator": {
+    "tool": "linux-audit",
+    "version": "1.1.0",
+    "build": "2026-07-17.plan-export"
+  },
+  "notes": [
+    "CIS checks are heuristic, benchmark-style checks derived from collected data. This is a hardening baseline, not a certified CIS-CAT scan.",
+    "Update counts reflect each host's existing package cache; no repository refresh was performed during the audit.",
+    "Items with disruptive=true can drop connectivity or break workloads. An unattended run must skip them unless a human has explicitly opted in.",
+    "observed/expected describe state at audit time. Re-verify before applying; the host may have changed."
+  ],
+  "summary": {
+    "hosts_total": 3,
+    "hosts_ok": 2,
+    "hosts_failed": 1,
+    "remediation_items": 15,
+    "auto_applicable": 8,
+    "needs_human": 7
+  },
+  "hosts": [
+    {
+      "host": "web01.example.com",
+      "hostname": "web01.example.com",
+      "reachable": true,
+      "facts": {
+        "distro": "Ubuntu 22.04.4 LTS",
+        "os_family": "debian",
+        "kernel": "Linux 5.15.0-101-generic",
+        "arch": "x86_64",
+        "package_manager": "apt",
+        "ips": [
+          "10.0.0.11",
+          "192.168.50.11"
+        ],
+        "uptime": "up 12 days, 4 hours, 7 minutes",
+        "reboot_required": true,
+        "selinux": "absent",
+        "apparmor": "enabled",
+        "firewall_active": false,
+        "package_count": "1843",
+        "updates_pending": 23,
+        "updates_security": 7
+      },
+      "counts": {
+        "cis_pass": 14,
+        "cis_fail": 11,
+        "cis_warn": 4,
+        "findings_high": 5,
+        "findings_medium": 3,
+        "findings_low": 3,
+        "remediation_items": 15,
+        "auto_applicable": 8,
+        "needs_human": 7
+      },
+      "remediation": [
+        {
+          "check_id": "5.2.1",
+          "key": "ssh.permit_root_login",
+          "title": "SSH: root login disabled",
+          "result": "FAIL",
+          "observed": "yes",
+          "expected": "no",
+          "detail": "PermitRootLogin=yes",
+          "action": {
+            "type": "sshd_config",
+            "directive": "PermitRootLogin",
+            "value": "no"
+          },
+          "restart": [
+            "sshd"
+          ],
+          "disruptive": true,
+          "requires_reboot": false,
+          "caution": "Verify a sudo-capable non-root account can log in first. Automation that logs in as root will break."
+        },
+        {
+          "check_id": "5.2.2",
+          "key": "ssh.password_authentication",
+          "title": "SSH: password authentication disabled",
+          "result": "WARN",
+          "observed": "yes",
+          "expected": "no",
+          "detail": "PasswordAuthentication=yes",
+          "action": {
+            "type": "sshd_config",
+            "directive": "PasswordAuthentication",
+            "value": "no"
+          },
+          "restart": [
+            "sshd"
+          ],
+          "disruptive": true,
+          "requires_reboot": false,
+          "caution": "Requires working key-based auth for every account that needs access. Applying this blind will lock you out."
+        },
+        {
+          "check_id": "5.2.4",
+          "key": "ssh.max_auth_tries",
+          "title": "SSH: MaxAuthTries <= 4",
+          "result": "FAIL",
+          "observed": "6",
+          "expected": "4",
+          "detail": "MaxAuthTries=6",
+          "action": {
+            "type": "sshd_config",
+            "directive": "MaxAuthTries",
+            "value": "4"
+          },
+          "restart": [
+            "sshd"
+          ],
+          "disruptive": false,
+          "requires_reboot": false,
+          "caution": null
+        },
+        {
+          "check_id": "5.2.5",
+          "key": "ssh.x11_forwarding",
+          "title": "SSH: X11 forwarding disabled",
+          "result": "WARN",
+          "observed": "yes",
+          "expected": "no",
+          "detail": "X11Forwarding=yes",
+          "action": {
+            "type": "sshd_config",
+            "directive": "X11Forwarding",
+            "value": "no"
+          },
+          "restart": [
+            "sshd"
+          ],
+          "disruptive": false,
+          "requires_reboot": false,
+          "caution": "Breaks remote GUI tooling if anyone relies on it."
+        },
+        {
+          "check_id": "5.2.6",
+          "key": "ssh.client_alive_interval",
+          "title": "SSH: idle timeout configured (ClientAliveInterval 1-300)",
+          "result": "FAIL",
+          "observed": "0",
+          "expected": "300",
+          "detail": "ClientAliveInterval=0",
+          "action": {
+            "type": "sshd_config",
+            "directive": "ClientAliveInterval",
+            "value": "300"
+          },
+          "restart": [
+            "sshd"
+          ],
+          "disruptive": false,
+          "requires_reboot": false,
+          "caution": "Long-running interactive sessions will be disconnected when idle."
+        },
+        {
+          "check_id": "5.2.7",
+          "key": "ssh.login_grace_time",
+          "title": "SSH: LoginGraceTime <= 60",
+          "result": "FAIL",
+          "observed": "120",
+          "expected": "60",
+          "detail": "LoginGraceTime=120",
+          "action": {
+            "type": "sshd_config",
+            "directive": "LoginGraceTime",
+            "value": "60"
+          },
+          "restart": [
+            "sshd"
+          ],
+          "disruptive": false,
+          "requires_reboot": false,
+          "caution": null
+        },
+        {
+          "check_id": "6.2.1",
+          "key": "accounts.uid0_unique",
+          "title": "Only one UID 0 account (root)",
+          "result": "FAIL",
+          "observed": "backup2,root",
+          "expected": "root",
+          "detail": "backup2, root",
+          "action": {
+            "type": "manual",
+            "note": "Investigate every non-root UID 0 account. Never automate this: a second UID 0 is either a backdoor or a deliberate break-glass account, and both need a human decision."
+          },
+          "restart": [],
+          "disruptive": true,
+          "requires_reboot": false,
+          "caution": "Do not auto-remediate. Escalate to a human."
+        },
+        {
+          "check_id": "6.2.2",
+          "key": "accounts.no_empty_passwords",
+          "title": "No login accounts with empty password",
+          "result": "FAIL",
+          "observed": "test",
+          "expected": "none",
+          "detail": "test",
+          "action": {
+            "type": "manual",
+            "note": "Lock (passwd -l) or set a password on each listed account. Locking a service account may break the service."
+          },
+          "restart": [],
+          "disruptive": true,
+          "requires_reboot": false,
+          "caution": "Locking an account in use will break whatever uses it."
+        },
+        {
+          "check_id": "5.4.1",
+          "key": "login_defs.pass_max_days",
+          "title": "PASS_MAX_DAYS <= 365",
+          "result": "FAIL",
+          "observed": "99999",
+          "expected": "365",
+          "detail": "PASS_MAX_DAYS=99999",
+          "action": {
+            "type": "login_defs",
+            "key": "PASS_MAX_DAYS",
+            "value": "365"
+          },
+          "restart": [],
+          "disruptive": false,
+          "requires_reboot": false,
+          "caution": "Applies to new accounts only; existing users need chage."
+        },
+        {
+          "check_id": "5.4.2",
+          "key": "login_defs.pass_min_days",
+          "title": "PASS_MIN_DAYS >= 1",
+          "result": "FAIL",
+          "observed": "0",
+          "expected": "1",
+          "detail": "PASS_MIN_DAYS=0",
+          "action": {
+            "type": "login_defs",
+            "key": "PASS_MIN_DAYS",
+            "value": "1"
+          },
+          "restart": [],
+          "disruptive": false,
+          "requires_reboot": false,
+          "caution": null
+        },
+        {
+          "check_id": "3.5.1",
+          "key": "firewall.active",
+          "title": "Host firewall active",
+          "result": "FAIL",
+          "observed": "ufw:Status: inactive; iptables_rules:2",
+          "expected": "active",
+          "detail": "ufw:Status: inactive; iptables_rules:2",
+          "action": {
+            "type": "service_enable",
+            "unit": "firewalld|ufw",
+            "note": "Must allow the SSH port BEFORE enabling, or the host is lost."
+          },
+          "restart": [],
+          "disruptive": true,
+          "requires_reboot": false,
+          "caution": "Enabling a default-deny firewall over SSH will cut your own session unless the SSH port is allowed first. Highest-risk item in this table."
+        },
+        {
+          "check_id": "1.9",
+          "key": "updates.security_pending",
+          "title": "No pending security updates",
+          "result": "FAIL",
+          "observed": 7,
+          "expected": "0",
+          "detail": "security=7 pending=23",
+          "action": {
+            "type": "package_update",
+            "security_only": true
+          },
+          "restart": [
+            "*"
+          ],
+          "disruptive": true,
+          "requires_reboot": false,
+          "caution": "Restarts services. Schedule in a maintenance window. Counts come from the existing package cache; refresh metadata first."
+        },
+        {
+          "check_id": "1.8",
+          "key": "updates.automatic",
+          "title": "Automatic security updates configured",
+          "result": "WARN",
+          "observed": "auto-updates:none-detected",
+          "expected": "configured",
+          "detail": "auto-updates:none-detected",
+          "action": {
+            "type": "package_install",
+            "packages": {
+              "apt": [
+                "unattended-upgrades"
+              ],
+              "dnf": [
+                "dnf-automatic"
+              ]
+            }
+          },
+          "restart": [],
+          "disruptive": false,
+          "requires_reboot": false,
+          "caution": "Unattended patching on production hosts is a policy decision."
+        },
+        {
+          "check_id": "1.10",
+          "key": "system.reboot_required",
+          "title": "No reboot pending",
+          "result": "WARN",
+          "observed": "yes",
+          "expected": "no",
+          "detail": "yes",
+          "action": {
+            "type": "reboot"
+          },
+          "restart": [],
+          "disruptive": true,
+          "requires_reboot": true,
+          "caution": "Obviously disruptive. Maintenance window only."
+        },
+        {
+          "check_id": "2.3",
+          "key": "packages.legacy_insecure",
+          "title": "No legacy insecure services installed (telnet/rsh/tftp/…)",
+          "result": "FAIL",
+          "observed": "telnet",
+          "expected": "none",
+          "detail": "telnet",
+          "action": {
+            "type": "package_remove",
+            "packages": [
+              "telnet"
+            ]
+          },
+          "restart": [],
+          "disruptive": false,
+          "requires_reboot": false,
+          "caution": "Confirm nothing still uses these before removing (rare but real: old backup jobs over rsh, network kit flashed over tftp)."
+        }
+      ],
+      "findings": [
+        {
+          "severity": "high",
+          "category": "Disk",
+          "finding": "Filesystem / 97% full",
+          "detail": "37G/40G used",
+          "recommendation": "Free space or expand volume; full disks cause outages"
+        },
+        {
+          "severity": "high",
+          "category": "SSH",
+          "finding": "PermitRootLogin is enabled",
+          "detail": "yes",
+          "recommendation": "Set 'PermitRootLogin no' and use sudo from a named account"
+        },
+        {
+          "severity": "medium",
+          "category": "SSH",
+          "finding": "Password authentication enabled",
+          "detail": "passwordauthentication yes",
+          "recommendation": "Move to key-based auth and set 'PasswordAuthentication no'"
+        },
+        {
+          "severity": "low",
+          "category": "SSH",
+          "finding": "X11 forwarding enabled",
+          "detail": "x11forwarding yes",
+          "recommendation": "Disable unless required"
+        },
+        {
+          "severity": "low",
+          "category": "SSH",
+          "finding": "MaxAuthTries is high",
+          "detail": "6",
+          "recommendation": "Lower to 3-4 to slow brute forcing"
+        },
+        {
+          "severity": "medium",
+          "category": "Firewall",
+          "finding": "No active host firewall detected",
+          "detail": "ufw:Status: inactive; iptables_rules:2",
+          "recommendation": "Enable ufw/firewalld/nftables with a default-deny inbound policy"
+        },
+        {
+          "severity": "high",
+          "category": "Patching",
+          "finding": "7 pending security update(s)",
+          "detail": "package manager: apt",
+          "recommendation": "Apply security updates promptly"
+        },
+        {
+          "severity": "medium",
+          "category": "Patching",
+          "finding": "Reboot required",
+          "detail": "kernel/libs updated",
+          "recommendation": "Schedule a maintenance reboot"
+        },
+        {
+          "severity": "low",
+          "category": "Patching",
+          "finding": "No automatic security updates configured",
+          "detail": "auto-updates:none-detected",
+          "recommendation": "Consider unattended-upgrades / dnf-automatic for security patches"
+        },
+        {
+          "severity": "high",
+          "category": "Accounts",
+          "finding": "Multiple UID 0 accounts",
+          "detail": "backup2, root",
+          "recommendation": "Only 'root' should have UID 0; investigate the others"
+        },
+        {
+          "severity": "high",
+          "category": "Accounts",
+          "finding": "Login account(s) with empty password",
+          "detail": "test",
+          "recommendation": "Lock or set passwords on these accounts"
+        }
+      ]
+    },
+    {
+      "host": "db01.corp.internal",
+      "hostname": "db01.corp.internal",
+      "reachable": true,
+      "facts": {
+        "distro": "Red Hat Enterprise Linux 9.3 (Plow)",
+        "os_family": "rhel",
+        "kernel": "Linux 5.14.0-362.el9.x86_64",
+        "arch": "x86_64",
+        "package_manager": "dnf",
+        "ips": [
+          "172.16.4.20"
+        ],
+        "uptime": "up 88 days, 1 hour, 3 minutes",
+        "reboot_required": false,
+        "selinux": "Enforcing",
+        "apparmor": "absent",
+        "firewall_active": true,
+        "package_count": "712",
+        "updates_pending": 4,
+        "updates_security": 0
+      },
+      "counts": {
+        "cis_pass": 29,
+        "cis_fail": 0,
+        "cis_warn": 0,
+        "findings_high": 0,
+        "findings_medium": 2,
+        "findings_low": 0,
+        "remediation_items": 0,
+        "auto_applicable": 0,
+        "needs_human": 0
+      },
+      "remediation": [],
+      "findings": [
+        {
+          "severity": "medium",
+          "category": "Disk",
+          "finding": "Filesystem /var 84% full",
+          "detail": "25G/30G used",
+          "recommendation": "Plan capacity; approaching full"
+        },
+        {
+          "severity": "medium",
+          "category": "Patching",
+          "finding": "4 pending update(s)",
+          "detail": "package manager: dnf",
+          "recommendation": "Schedule patching"
+        }
+      ]
+    }
+  ],
+  "unreachable": [
+    {
+      "host": "bad-host.example.com",
+      "error": "ssh: connect to host bad-host.example.com port 22: Connection timed out"
+    }
+  ]
+}
