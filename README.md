@@ -219,7 +219,7 @@ distro are trailing comments — so you can feed it straight back in:
 
 ```
 # Active hosts as of 2026-07-09 12:00:00 — 78 reachable, 3 unreachable
-s-cohen.zav-mb.loc              # 172.16.101.168  Red Hat Enterprise Linux 9.3 (Plow)
+eu-west2.kosir.loc              # 192.168.101.168  Red Hat Enterprise Linux 9.3 (Plow)
 ...
 ```
 
