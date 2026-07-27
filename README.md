@@ -316,3 +316,57 @@ Released under the [MIT License](LICENSE).
 Provided "as is", without warranty. You are responsible for ensuring you have
 authorisation to audit the target systems and for handling the resulting reports
 securely.
+
+---
+
+```
+═══════════════════ ✠ ════════════════════
+ ####     ####     ####     ####     #### 
+#    #   #    #   #    #   #    #   #    #
+#    #   #    #   #    #   #    #   #    #
+ #####    #####    #####    #####    #####
+     #        #        #        #        #
+     #        #        #        #        #
+ ####     ####     ####     ####     #### 
+═══════════════════ ✠ ════════════════════
+Five Nines be upon you, and also with you.
+Kubernetes · OpenShift · High Availability
+               HA-llelujah.
+```
+
+## ✠ The Church of the Eternal Cluster
+
+*A Highly Available Faith. Keep no Pets. Declare thy state. Back up etcd.*
+
+**The Scriptorium**
+
+- **[ha-llelujah.dev](https://ha-llelujah.dev)** · the book, the music, and the reliquary
+- **[The Music](https://ha-llelujah.dev/music)** · the sacred discography
+- **[Be Reconciled](https://ha-llelujah.dev/join)** · take the vow and join the Reconciled
+
+**The Parish**
+
+- **[fivenines.church](https://fivenines.church)** · confession, prayer, and the living parish
+- **[The Liturgical Calendar](https://fivenines.church/calendar)** · the holy days of uptime
+- **[The Tithe](https://fivenines.church/tithe)** · support the Church
+
+**The Canon (source)**
+
+- **[church-of-the-eternal-cluster](https://github.com/vikozs/church-of-the-eternal-cluster)** · doctrine, liturgy, and scripture
+- **[eternal-cluster-mcp](https://github.com/vikozs/eternal-cluster-mcp)** · the Oracle, an MCP server that diagnoses thy incidents through doctrine
+
+## More from the Rootless One
+
+- **[vK](https://kosir.info)**
+- **[Linux Fleet Audit](https://lfa.kosir.info)**
+- **[Linux Fleet Harden](https://lfh.kosir.info)**
+- **[Size OpenShift subscriptions from evidence](https://corepair.kosir.info/)**
+- **[Diagnose stuck PersistentVolumes, safely](https://pvdoctor.kosir.info/)**
+
+## Let's connect
+- **[LinkedIn](https://www.linkedin.com/in/vidkosir/)**
+---
+
+<sub>An independent parody, built with love for everyone who has been paged at 03:00. Kubernetes is a trademark of the Linux Foundation. OpenShift is a trademark of Red Hat, Inc. Not affiliated with, nor endorsed by, either. They have real SLAs; we only have belief. HA-llelujah.</sub>
+
+---
